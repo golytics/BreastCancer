@@ -15,35 +15,75 @@ from sklearn.tree import DecisionTreeClassifier
 from tpot.builtins import StackingEstimator
 from tpot.export_utils import set_param_recursive
 
-# running model pickled in google colab
 
-# running the locally generated pickle didn't work because:
-# https://stackoverflow.com/questions/21033038/scikits-learn-randomforrest-trained-on-64bit-python-wont-open-on-32bit-python
-# and
-# https://stackoverflow.com/questions/27595982/how-to-save-a-randomforest-in-scikit-learn/27596667
 
-# https://docs.streamlit.io/en/latest/api.html#streamlit.beta_set_page_config
-# https://discuss.streamlit.io/t/version-0-65-0/4880
-st.beta_set_page_config(page_title="Breast Cancer Predictor", page_icon="🔬", layout='centered', initial_sidebar_state='auto')
+st.set_page_config(page_title='Mohamed Gabr - House Price Prediction', page_icon ='logo.png', layout = 'wide', initial_sidebar_state = 'auto')
 
-st.title('Breast Cancer Prediction Using Artificial Intelligence 🤖')
+
+import os
+import base64
+
+# the functions to prepare the image to be a hyperlink
+@st.cache(allow_output_mutation=True)
+def get_base64_of_bin_file(bin_file):
+    with open(bin_file, 'rb') as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
+@st.cache(allow_output_mutation=True)
+def get_img_with_href(local_img_path, target_url):
+    img_format = os.path.splitext(local_img_path)[-1].replace('.', '')
+    bin_str = get_base64_of_bin_file(local_img_path)
+    html_code = f'''
+        <a href="{target_url}">
+            <img src="data:image/{img_format};base64,{bin_str}" />
+        </a>'''
+    return html_code
+
+
+# preparing the layout for the top section of the app
+# dividing the layout vertically (dividing the first row)
+row1_1, row1_2, row1_3 = st.columns((1, 5, 4))
+
+# first row first column
+with row1_1:
+    gif_html = get_img_with_href('logo.png', 'https://golytics.github.io/')
+    st.markdown(gif_html, unsafe_allow_html=True)
+
+with row1_2:
+    # st.image('logo.png')
+    st.title('Predicting Breast Cancer Using Artificial Intelligence')
+    st.markdown("<h2>A Machine Learning POC for a Client</h2>", unsafe_allow_html=True)
+
+# first row second column
+with row1_3:
+    st.info(
+        """
+        ##
+        This data product has been prepared as a proof of concept of a machine learning model to predict breast cancer. Developing the final model required
+        many steps following the CRISP-DM methodology. After building the model we used it to predict the disease in this application. **The model can be changed/
+        enhanced for any another population based on its own data.**
+        """)
+
+
+
+
+
+
+st.write("""
+        This app predicts  **Breast Cancer**
+        """)
+
+st.subheader('How to use the model?')
+'''
+You can use the model by modifying the User Input Parameters on the left. The parameters will be passed to the classification
+model. You will see the parameters you selected under the **"These are the values you entered"** section. 
+
+1- By clicking "Submit",  the model will run each time you modify the parameters.
+
+2- You will see the prediction result (whether the person has breast cancer or not) under the **'Results'** section below.
 
 '''
-This web app uses machine learning to predict whether a person has breast cancer using some of their clinical data.
-
-❗ **Not a diagnostic tool**  
-This is just a demo application of machine learning.
-
-🚧 **Limitations**  
-The dataset used to train the model is small and there might be better variables that could have been used.
-
-*Original dataset available here: [Breast Cancer Coimbra](https://archive.ics.uci.edu/ml/datasets/Breast+Cancer+Coimbra)*
-
-*Details are described in: [Patrício, M., Pereira, J., Crisóstomo, J. et al. Using Resistin, glucose, age and BMI to predict the presence of breast cancer. BMC Cancer 18, 29 (2018)](https://doi.org/10.1186/s12885-017-3877-1)*
-
-'''
-
-
 #load data
 @st.cache
 def load_data():
@@ -51,41 +91,6 @@ def load_data():
 
 data = load_data()
 
-st.write('###### *click to show/hide')
-if st.checkbox('Data'):
-    '''
-    ## Data Used for Training
-    '''
-
-    data
-    
-    st.write('###### ' + str(data.shape[0]) + ' rows and ' + str(data.shape[1]) + ' columns.')
-
-#dowload cleaned data
-    #using the function from https://github.com/dataprofessor/basketball-heroku/blob/fe1e45eb1a238737e50adb8bd685bf54d1171642/basketball_app.py#L48
-    #original discussion https://discuss.streamlit.io/t/how-to-download-file-in-streamlit/1806
-    def filedownload(df):
-        csv = data.to_csv(index=False)
-        b64 = base64.b64encode(csv.encode()).decode()  # strings <-> bytes conversions
-        href = f'<a href="data:file/csv;base64,{b64}" download="cleaned_data.csv">Download as CSV</a>'
-        return href
-
-    st.markdown(filedownload(data), unsafe_allow_html=True)
-
-    st.write('This is the cleaned data, please see the link to the dataset source to see raw data')
-    st.write('Under the classification column: 0=healthy, 1=patient with cancer')
-
-
-#tiny bit of data viz
-    st.header('Feature Correlations')
-
-    corr_features = data.drop('Classification', axis=1).apply(lambda x: x.corr(data['Classification']))
-    corr_df = pd.DataFrame(corr_features.sort_values(ascending=False), columns=['correlation to breast cancer classification'])
-    st.table(corr_df)
-    '''
-    This table shows the correlation between the blood test results and whether or not a person has cancer
-    '''
-    st.markdown('---')
 
 
 @st.cache(allow_output_mutation=True) #added 'allow_output_mutation=True' because kept getting 'CachedObjectMutationWarning: Return value of load_model() was mutated between runs.'
@@ -94,126 +99,44 @@ def load_model():
 
 model = load_model()
 
-#show evaluation metrics
-if st.checkbox('Model Metrics'):
 
-    #split the same way as used to train (from cleaned_data_pipeline.py)
-    features = data.drop('Classification', axis=1)
-    training_features, testing_features, training_target, testing_target = \
-                train_test_split(features, data['Classification'], random_state=42, test_size=0.2)
 
-    y_pred = model.predict(testing_features)
-    y_true = testing_target
+st.sidebar.header("""User input features/ parameters: 
 
-    accuracy = accuracy_score(y_true, y_pred, normalize=True)*100
-    confusion_matrix(y_true, y_pred)
+Select/ modify/ type the combination of features below to predict the breast cancer
+                """)
+# input_type = st.sidebar.selectbox('Input Method', ['Move Sliders', 'Enter Values'], index=1)
 
-    # extracting true_positives, false_positives, true_negatives, false_negatives
-    tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
-
-    tnr = tn/(tn+fn)*100
-    fpr = fp/(tp+fp)*100
-    fnr = fn/(tn+fn)*100
-    tpr = tp/(fp+tp)*100
-
-    '''# 📊'''
-    st.write(f"Accuracy: {accuracy:.2f}%")
-    st.write(f"True negative rate: {tnr:.2f}%")
-    st.write(f"False Positive rate: {fpr:.2f}%")
-    st.write(f"False Negative rate: {fnr:.2f}%")
-    st.write(f"True Positive rate: {tpr:.2f}%")
-
-    
-st.markdown('---')
-
-st.title("Get a Prediction🔮")
-
-'''
-###### Note: Use this on Desktop for the best experience. If you're on mobile, use the arrow button on the upper left corner to open the sidebar and access input methods.
-'''
-
-#selectbox section starts
-###################################################################################################
-
-input_type = st.sidebar.selectbox('Input Method', ['Move Sliders', 'Enter Values'], index=1)
-
-if input_type == 'Enter Values': #display text input fields, show user input, submit button
+# if input_type == 'Enter Values': #display text input fields, show user input, submit button
 
     #number input fields for features
 
     #format="%.3f rfom https://discuss.streamlit.io/t/st-number-input-formatter-displaying-blank-input-box/1217
-    BMI = st.sidebar.number_input('BMI (kg/m2)', format="%.4f", step=0.0001)
-    Glucose = st.sidebar.number_input('Glucose (mg/dL)', format="%.0f")
-    Insulin = st.sidebar.number_input('Insulin (µU/mL)', format="%.4f", step=0.0001)
-    HOMA = st.sidebar.number_input('HOMA', format="%.4f",step=0.0001)
-    Resistin = st.sidebar.number_input('Resistin (ng/mL)', format="%.4f", step=0.0001)
+BMI = st.sidebar.number_input('BMI (kg/m2)', format="%.4f", step=0.0001)
+Glucose = st.sidebar.number_input('Glucose (mg/dL)', format="%.0f")
+Insulin = st.sidebar.number_input('Insulin (µU/mL)', format="%.4f", step=0.0001)
+HOMA = st.sidebar.number_input('HOMA', format="%.4f",step=0.0001)
+Resistin = st.sidebar.number_input('Resistin (ng/mL)', format="%.4f", step=0.0001)
 
-    st.sidebar.info(
-    '''
-    💡 **Tip:**
-    Change input to "move sliders" to get a feel for how the model thinks. Play around with the sliders and watch the predictions change.
-    '''
-    )
+    # st.sidebar.info(
+    # '''
+    # 💡 **Tip:**
+    # Change input to "move sliders" to get a feel for how the model thinks. Play around with the sliders and watch the predictions change.
+    # '''
+    # )
 
     # show user input
-    '''
-    ## These are the values you entered
-    '''
-    f"**BMI**: {BMI:.4f} kg/m2"
-    f"**Glucose**: {Glucose:.0f} mg/dL"
-    f"**Insulin**: {Insulin:.4f} µU/mL"
-    f"**HOMA**: {HOMA:.4f}"
-    f"**Resistin**: {Resistin:.4f} ng/mL"
+'''
+### These are the values you entered
+'''
+f"**BMI**: {BMI:.4f} kg/m2"
+f"**Glucose**: {Glucose:.0f} mg/dL"
+f"**Insulin**: {Insulin:.4f} µU/mL"
+f"**HOMA**: {HOMA:.4f}"
+f"**Resistin**: {Resistin:.4f} ng/mL"
 
-    #button to create new dataframe with input values
-    if st.button("submit ✅"):
-        dataframe = pd.DataFrame(
-            {'BMI':BMI,
-            'Glucose':Glucose,
-            'Insulin':Insulin,
-            'HOMA':HOMA,
-            'Resistin ':Resistin }, index=[0]
-        )
-
-if input_type == 'Move Sliders': #display slider input fields
-
-    BMI = st.sidebar.slider('BMI (kg/m2)',
-                min_value=10.0,
-                max_value=50.0,
-                value=float(data['BMI'][0]),
-                step=0.01)
-
-    Glucose = st.sidebar.slider('Glucose (mg/dL)',
-                min_value=25,
-                max_value=250,
-                value=int(data['Glucose'][0]),
-                step=1)
-    # i kept getting an error so i just used int() after about an hour or so of frustration
-    # fyi before applying int(), value was <class 'numpy.int64'>
-    # the error:
-    # StreamlitAPIException: Slider value should either be an int/float or a list/tuple of 0 to 2 ints/floats
-
-    Insulin = st.sidebar.slider('Insulin (µU/mL)',
-                        min_value=1.0,
-                        max_value=75.0,
-                        value=float(data['Insulin'][0]),
-                        step=0.01)
-    
-    HOMA = st.sidebar.slider('HOMA',
-                        min_value=0.25,
-                        max_value=30.0,
-                        value=float(data['HOMA'][0]),
-                        step=0.01)
-
-    Resistin = st.sidebar.slider('Resistin (ng/mL)',
-                        min_value=1.0,
-                        max_value=100.0,
-                        value=float(data['Resistin'][0]),
-                        step=0.01)
-    # got KeyError: <class ‘numpy.float64’> and had to add float()
-    # https://discuss.streamlit.io/t/keyerror-class-numpy-float64/5147
-    
-    #slider values to dataframe
+#button to create new dataframe with input values
+if st.button("submit"):
     dataframe = pd.DataFrame(
         {'BMI':BMI,
         'Glucose':Glucose,
@@ -222,9 +145,56 @@ if input_type == 'Move Sliders': #display slider input fields
         'Resistin ':Resistin }, index=[0]
     )
 
-    '''
-    ## Move the Sliders to Update Results ↔
-    '''
+# if input_type == 'Move Sliders': #display slider input fields
+
+# BMI = st.sidebar.slider('BMI (kg/m2)',
+#             min_value=10.0,
+#             max_value=50.0,
+#             value=float(data['BMI'][0]),
+#             step=0.01)
+#
+# Glucose = st.sidebar.slider('Glucose (mg/dL)',
+#             min_value=25,
+#             max_value=250,
+#             value=int(data['Glucose'][0]),
+#             step=1)
+    # i kept getting an error so i just used int() after about an hour or so of frustration
+    # fyi before applying int(), value was <class 'numpy.int64'>
+    # the error:
+    # StreamlitAPIException: Slider value should either be an int/float or a list/tuple of 0 to 2 ints/floats
+
+    # Insulin = st.sidebar.slider('Insulin (µU/mL)',
+    #                     min_value=1.0,
+    #                     max_value=75.0,
+    #                     value=float(data['Insulin'][0]),
+    #                     step=0.01)
+    #
+    # HOMA = st.sidebar.slider('HOMA',
+    #                     min_value=0.25,
+    #                     max_value=30.0,
+    #                     value=float(data['HOMA'][0]),
+    #                     step=0.01)
+    #
+    # Resistin = st.sidebar.slider('Resistin (ng/mL)',
+    #                     min_value=1.0,
+    #                     max_value=100.0,
+    #                     value=float(data['Resistin'][0]),
+    #                     step=0.01)
+    # got KeyError: <class ‘numpy.float64’> and had to add float()
+    # https://discuss.streamlit.io/t/keyerror-class-numpy-float64/5147
+
+    #slider values to dataframe
+    # dataframe = pd.DataFrame(
+    #     {'BMI':BMI,
+    #     'Glucose':Glucose,
+    #     'Insulin':Insulin,
+    #     'HOMA':HOMA,
+    #     'Resistin ':Resistin }, index=[0]
+    # )
+    #
+    # '''
+    # ## Move the Sliders to Update Results ↔
+    # '''
 
 #selectbox section ends
 ###################################################################################################
@@ -232,26 +202,36 @@ if input_type == 'Move Sliders': #display slider input fields
 
 try:
     '''
-    ## Results 📋
+    ## Results
     '''
 
     if model.predict(dataframe)==0:
-        st.write('Prediction: **NO BREAST CANCER 🙌**')
+        html_str = f"""
+        <h3 style="color:lightgreen;">NO BREAST CANCER</h3>
+        """
+
+        st.markdown(html_str, unsafe_allow_html=True)
+        # st.write('Prediction: **NO BREAST CANCER **')
     else:
-        st.write('Prediction: **BREAST CANCER PRESENT**')
+        html_str = f"""
+        <h3 style="color:red;">BREAST CANCER PRESENT</h3>
+        """
+
+        st.markdown(html_str, unsafe_allow_html=True)
+        # st.write('Prediction: **BREAST CANCER PRESENT**')
 
     for healthy, cancer in model.predict_proba(dataframe):
         
         healthy = f"{healthy*100:.2f}%"
         cancer = f"{cancer*100:.2f}%"
 
-        st.table(pd.DataFrame({'healthy':healthy,
-                                'has breast cancer':cancer}, index=['probability']))
+        st.table(pd.DataFrame({'The person is healthy is':healthy,
+                                'The person has breast cancer is':cancer}, index=['Probability that']))
 
-    if input_type == 'enter values':
-        st.success('done 👍')
-    else:
-        pass
+    # if input_type == 'enter values':
+    #     st.success('done 👍')
+    # else:
+    #     pass
 
     import warnings
     warnings.filterwarnings('ignore')
@@ -261,20 +241,69 @@ except:
     # st.write("if you see this, it finally worked :O")
 
 st.markdown('---')
+st.info("""**Note: ** [The data source is]: ** (https://archive.ics.uci.edu/ml/datasets/Breast+Cancer+Coimbra). The following steps have been applied till we reached the model:
 
-st.info(
-'''
-Source code available [here](https://github.com/batmanscode/breastcancer-predictor), please feel free to leave feedback and contribute 😊
-'''
-)
+        1- Data Acquisition/ Data Collection (reading data, adding headers)
 
-# hide hamburger menu
-# https://discuss.streamlit.io/t/remove-made-with-streamlit-from-bottom-of-app/1370/2
-# https://github.com/streamlit/streamlit/issues/395#issuecomment-579526417
+        2- Data Cleaning / Data Wrangling / Data Pre-processing (handling missing values, correcting data fromat/ data standardization 
+        or transformation/ data normalization/ data binning/ Preparing Indicator or binary or dummy variables for Regression Analysis/ 
+        Saving the dataframe as ".csv" after Data Cleaning & Wrangling)
+
+        3- Exploratory Data Analysis (Analyzing Individual Feature Patterns using Visualizations/ Descriptive statistical Analysis/ 
+        Basics of Grouping/ Correlation for continuous numerical variables/ Analysis of Variance-ANOVA for ctaegorical or nominal or 
+        ordinal variables/ What are the important variables that will be used in the model?)
+
+        4- Model Development (Single Linear Regression and Multiple Linear Regression Models/ Model Evaluation using Visualization)
+
+        5- Polynomial Regression Using Pipelines (one-dimensional polynomial regession/ multi-dimensional or multivariate polynomial 
+        regession/ Pipeline : Simplifying the code and the steps)
+
+        6- Evaluating the model numerically: Measures for in-sample evaluation (Model 1: Simple Linear Regression/ 
+        Model 2: Multiple Linear Regression/ Model 3: Polynomial Fit)
+
+        7- Predicting and Decision Making (Prediction/ Decision Making: Determining a Good Model Fit)
+
+        8- Model Evaluation and Refinement (Model Evaluation/ cross-validation score/ over-fitting, under-fitting and model selection)
+
+""")
+
 
 hide_menu_style = """
         <style>
         #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
         </style>
         """
 st.markdown(hide_menu_style, unsafe_allow_html=True)
+with open("style.css") as f:
+    st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+
+footer="""<style>
+a:link , a:visited{
+color: blue;
+background-color: transparent;
+text-decoration: underline;
+}
+
+a:hover,  a:active {
+color: red;
+background-color: transparent;
+text-decoration: underline;
+}
+
+.footer {
+position: fixed;
+left: 0;
+bottom: 0;
+width: 100%;
+background-color: white;
+color: black;
+text-align: center;
+}
+</style>
+<div class="footer">
+<p>Published By: <a href="https://golytics.github.io/" target="_blank">Dr. Mohamed Gabr</a></p>
+</div>
+"""
+st.markdown(footer,unsafe_allow_html=True)
